@@ -178,47 +178,42 @@
   or nil if not available."
   []
   (try
-    (Class/forName "java.util.logging.Logger")
-    (eval
-      `(let [levels# {:trace java.util.logging.Level/FINEST
-                      :debug java.util.logging.Level/FINE
-                      :info  java.util.logging.Level/INFO
-                      :warn  java.util.logging.Level/WARNING
-                      :error java.util.logging.Level/SEVERE
-                      :fatal java.util.logging.Level/SEVERE}]
-         (extend java.util.logging.Logger
-           Logger
-           {:enabled?
-            (fn [^java.util.logging.Logger logger# level#]
-              (.isLoggable logger#
-                (or
+    (let [levels# {:trace java.util.logging.Level/FINEST
+                   :debug java.util.logging.Level/FINE
+                   :info  java.util.logging.Level/INFO
+                   :warn  java.util.logging.Level/WARNING
+                   :error java.util.logging.Level/SEVERE
+                   :fatal java.util.logging.Level/SEVERE}]
+      (extend java.util.logging.Logger
+        Logger
+        {:enabled?
+         (fn [^java.util.logging.Logger logger# level#]
+           (.isLoggable logger#
+                        (or
+                         (levels# level#)
+                         (throw (IllegalArgumentException. (str level#))))))
+         :write!
+         (fn [^java.util.logging.Logger logger# level# ^Throwable e# msg#]
+           (let [^java.util.logging.Level level#
+                 (or
                   (levels# level#)
-                  (throw (IllegalArgumentException. (str level#))))))
-            :write!
-            (fn [^java.util.logging.Logger logger# level# ^Throwable e# msg#]
-              (let [^java.util.logging.Level level#
-                    (or
-                      (levels# level#)
-                      (throw (IllegalArgumentException. (str level#))))
-                    ^String msg# (str msg#)]
-                (if e#
-                  (.log logger# level# msg# e#)
-                  (.log logger# level# msg#))))})
-         (reify LoggerFactory
-           (name [_#]
-             "java.util.logging")
-           (get-logger [_# logger-ns#]
-             (java.util.logging.Logger/getLogger (str logger-ns#))))))
+                  (throw (IllegalArgumentException. (str level#))))
+                 ^String msg# (str msg#)]
+             (if e#
+               (.log logger# level# msg# e#)
+               (.log logger# level# msg#))))})
+      (reify LoggerFactory
+        (name [_#]
+          "java.util.logging")
+        (get-logger [_# logger-ns#]
+          (java.util.logging.Logger/getLogger (str logger-ns#)))))
     (catch Exception e nil)))
 
 (defn find-factory
   "Returns the first non-nil value from slf4j-factory, cl-factory,
    log4j-factory, and jul-factory."
   []
-  (or (slf4j-factory)
-      (cl-factory)
-      (log4j-factory)
-      (jul-factory)
+  (or (jul-factory)
       (throw ; this should never happen in 1.5+
         (RuntimeException.
           "Valid logging implementation could not be found."))))
